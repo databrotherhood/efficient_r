@@ -1,0 +1,257 @@
+---
+title: "Efficient Data Science with R"
+author: "Brandon C. Loudermilk"
+date: "June 19, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Using R for Efficient Data Science
+
+
+Importantly, R **efficiency** not just about algorithmic speed and reducing CPU cycles, but it is also about programmer productivity across the entire software lifecycle. As Lovelace and Gillespie argue in [Efficient R Programming (2016)](http://shop.oreilly.com/product/0636920047995.do), efficiency also includes programming idioms, IDEs, coding conventions, and community support – all things that can improve the speed and ease of writing and maintaining code. This is especially important for R which is a notoriously flexible language in its ability to solve problems in multiple ways, an issue that is compounded when one starts to examine the thousands of packages that are available on CRAN, Bioconductor, and Github. This is flexibility is both a blessing and curse. It is a blessing because it affords you the tools to write code specific to your inidvidual needs. It is a curse because (a) it makes it more likely that you will choose a suboptimal solution to your problem and (b) it makes it more likely that another scientist or team mate will not understand your code, thus making it more difficult to maintain and extend.
+
+In the following sections, on a case by case basis, I will briefly introduce a problem or challenge to writing effective and efficient R code for common data science tasks. I will illustrate how these problems might be tackled in base R or with other common packages and how a novice R programmer might tackle them. Next, I will show you what I think is a preferred solution -- one which makes for more effective and efficient code, especially in a **production** environment. Rather than renventing the wheel, I will show you what I have found in my 4 years of doing data science in R are the most useful packages for solving these tasks.
+
+
+
+
+dplyr
+magrittr
+glue
+microbenchmark
+readr
+tibble
+
+### String formatting
+Using base R, you are relegated to `paste` and `sprintf`, two ungainly options that make your code difficult to read and debug. You 
+
+```{r}
+
+name <- "Brandon"
+age <- 45
+age_units <- "years"
+weight <- 162.5
+weight_units <- "pounds"
+
+## Solution # 1 - Using paste
+## Hard to read and deal with different separators.
+base::paste(name, "is", age, paste0(age_units, "."), "He weighs", weight, paste0(weight_units, "!"))
+
+
+## Solution # 2 - Using sprintf
+## Difficult to remember formatting codes; Difficult to interpret long strings (e.g., complex SQL queries sent via
+## ODBC) requiring you to visually map variables at end of construct to embedded placeholders.
+base::sprintf("%s is %i %s. He weighs %3.1f %s!", name, age, age_units, weight, weight_units)
+
+
+## Preferred Soltion - Using glue
+## Reads like a sentence, easy to interpret,
+glue::glue("{name} is {age} {age_units}. He weighs {weight} {weight_units}!")
+
+
+## Bonus - Can also use an environment to evaluate variables
+person <- new.env()
+person$name = "Fred"
+person$age = 28
+person$age_units = age_units
+person$weight = 185
+person$weight_units = weight_units
+ls(person)
+
+glue::glue("{name} is {age} {age_units}. He weighs {weight} {weight_units}!", .envir = person)
+
+
+
+```
+
+
+## Complex expressions 
+Because R functions pass *by value* (rather than *by reference*), complex expressions are formed by creating either (1) nested function call stacks that are difficult to interpret, or (2) by reassigning function calls to unweildy temporary variables introducing the opportunity for bugs. For example, imagine an NLP pipeline processing unstructured text (tweets) into a structured bag-of-words representation:
+
+```{r}
+
+remove_punc <- function(s) {
+  gsub("[[:punct:]]","", s )
+}
+  
+tokenize <- function(s, split_str) {
+  stringr::str_split(s, split_str)
+}
+
+same_case <- function(s, case) {
+  if (case == "upper") {
+    toupper(s)
+  } else if (case == "lower") {
+    tolower(s)
+  } else {
+    s
+  }
+}
+
+splitSubHash <- function(s) {
+  #pat <- '(\\W|^)#(\\w+)'
+  pat <- '(\\W|^)#([a-zA-Z]+[\\w]*)'
+  sub <- "\\1HASHTAG \\2"
+  gsub(pat, sub, s)
+}
+
+
+splitMention <- function(s) {
+  pat <- "(\\W|^)(@)(\\w+)"
+  sub <- "\\1MENTION \\3"
+  gsub(pat, sub, s)
+}
+
+subURL <- function(s) {
+  pat <- "http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+"
+  sub <- "URL"
+  gsub(pat, sub, s)
+}
+
+stripNonAscii <- function(s) {
+  pat <- '[^\x01-\x7F]+'
+  sub <- " "
+  gsub(pat, sub, s)
+}
+
+remove_extraspaces <- function(s) {
+  stringr::str_replace(gsub("\\s+", " ", stringr::str_trim(s)), "B", "b")
+}
+
+s <- "@b_loudermilk 'Developers who use spaces make more money than those who use tabs' https://stackoverflow.blog/2017/06/15/developers-use-spaces-make-money-use-tabs/ … #rstats "
+
+## Solution 1 - nesting complex function call stack
+tokenize(remove_extraspaces(remove_punc(subURL(splitSubHash(splitMention(same_case(stripNonAscii(s), case = "lower")))))), split_str = " ")
+
+
+## Solution 2 - assign to temporary variables
+## more interpretable, but still unwieldy and easy to make mistakes
+
+(s1 <- stripNonAscii(s))
+(s2 <- same_case(s1, case = "lower"))
+(s3 <- splitMention(s2))
+(s4 <- splitSubHash(s3))
+(s5 <- subURL(s4))
+(s6 <- remove_punc(s5))
+(s7 <- remove_extraspaces(s6))
+tokenize(s7, split_str = " ")
+  
+
+## Preferred Solution - Using {magrittr} pipe %>%
+## Feeds output from LHS of %>% to 1st arg of RHS function
+library(magrittr)
+
+s %>% 
+  stripNonAscii() %>% 
+  same_case(case = "lower") %>% 
+  splitMention() %>% 
+  splitSubHash() %>% 
+  subURL() %>% 
+  remove_punc() %>% 
+  remove_extraspaces() %>% 
+  tokenize(split_str = " ")
+
+
+
+
+
+```
+
+## Joining, filtering, selecting, grouping, and summarizing data
+There are numerous functions available in base R for common processing tasks like filtering and selection (e.g., `split()`, `subset()`, `aggregate()`). Most use standard evaluation making for long, unwieldy statements, and the differing syntax makes them difficult to remember and they often do not play well together. 
+
+```{r}
+
+
+
+df <- dplyr::starwars
+df
+
+weapons_df <- data.frame(name = c("Luke Skywalker", "C-3PO", "R2-D2", "Darth Vader", "Leia Organa",
+                                  "Obi-Wan Kenobi", "Chewbacca", "Han Solo", "Greedo", "Boba Fett"),
+                         weapon = c("lightsaber", "none", "none", "lightsaber", "blaster",
+                                    "lightsaber", "bowcaster", "blaster", "blaster", "blaster"),
+                         stringsAsFactors = FALSE)
+
+
+
+## Question? Among all characters of known gender and mass GE 75, are blaster users or lightsaber wielders
+## taller on average
+
+
+## Solution 1 (partial) - Using base
+
+## filter
+df_1 <- df[!is.na(df$gender), ]
+df_2 <- df_1[df_1$mass >= 75, ]
+
+## select
+df_3 <- df_2[,c("name", "height")]
+
+## left join
+df_3$weapon <- NA
+res <- sapply(1:nrow(df_3), function(i) {
+  (nm <- df_3$name[i])
+  (idx <- which(weapons_df$name == nm))
+  if (length(idx) == 0) {
+    NA
+  } else {
+    weapons_df$weapon[idx]
+  }
+})
+
+df_3$weapon <- res
+View(df_3)
+
+## try to summarize
+(tb <- table(df_3$height, df_3$weapon))
+
+## ^ ergh!!! Going to stop Way too complex, there has got to be a better approach!
+
+
+## Preferred Solution - Use dplyr (with magrittr %>%)
+
+library(magrittr)
+library(dplyr)
+df %>% 
+  left_join(weapons_df) %>% 
+  filter(!is.na(gender) & 
+           mass >= 75 & 
+           weapon %in% c("blaster", "lightsaber")) %>% 
+  select(name, 
+         hair_color, 
+         height, 
+         weapon) %>% 
+  group_by(weapon) %>% 
+  summarize(mean_height = mean(height), sd_height = sd(height), n = n())
+
+
+```
+
+## Model results
+Output from various models takes myriad forms making it difficult to create data processing pipelines. Suppose we want to programmatically fit a model and select all terms that are significant at p < 0.01.
+
+```{r}
+library(magrittr)
+library(dplyr)
+lm_fit <- lm(Petal.Width ~ ., data = iris[,1:4])
+summary(lm_fit)
+str(lm_fit)
+
+df <- as.data.frame(coef(summary(lm_fit))) 
+filt_df <- df[df$`Pr(>|t|)` <= 0.01, ]
+(sig_terms <- row.names(filt_df))
+
+lm_fit %>% 
+  broom::tidy() %>% 
+  filter(p.value <= 0.01) %>% 
+  select(term)
+
+```
+
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
