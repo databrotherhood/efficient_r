@@ -12,9 +12,9 @@ knitr::opts_chunk$set(echo = TRUE)
 ## Using R for Efficient Data Science
 
 
-Importantly, R **efficiency** not just about algorithmic speed and reducing CPU cycles, but it is also about programmer productivity across the entire software lifecycle. As Lovelace and Gillespie argue in [Efficient R Programming (2016)](http://shop.oreilly.com/product/0636920047995.do), efficiency also includes programming idioms, IDEs, coding conventions, and community support – all things that can improve the speed and ease of writing and maintaining code. This is especially important for R which is a notoriously flexible language in its ability to solve problems in multiple ways, an issue that is compounded when one starts to examine the thousands of packages that are available on CRAN, Bioconductor, and Github. This is flexibility is both a blessing and curse. It is a blessing because it affords you the tools to write code specific to your inidvidual needs. It is a curse because (a) it makes it more likely that you will choose a suboptimal solution to your problem and (b) it makes it more likely that another scientist or team mate will not understand your code, thus making it more difficult to maintain and extend.
+Importantly, R **efficiency** not just about algorithmic speed and reducing CPU cycles, but it is also about programmer productivity across the entire software lifecycle. As Lovelace and Gillespie argue in [Efficient R Programming (2016)](http://shop.oreilly.com/product/0636920047995.do), efficiency also includes programming idioms, IDEs, coding conventions, and community support – all things that can improve the speed and ease of writing and maintaining code. This is especially important for R which is a notoriously flexible language in its ability to solve problems in multiple ways, an issue that is compounded when one starts to examine the thousands of packages that are available on CRAN, Bioconductor, and Github. This is flexibility is both a blessing and curse. It is a blessing because it affords you the tools to write code specific to your inidvidual needs. It is a curse because (a) it makes it more likely that you will choose a suboptimal solution to your problem and (b) it makes it more likely that another scientist or team mate (and possibly your *future self*) will not understand your code, thus making it more difficult to maintain and extend.
 
-In the following sections, on a case by case basis, I will briefly introduce a problem or challenge to writing effective and efficient R code for common data science tasks. I will illustrate how these problems might be tackled in base R or with other common packages and how a novice R programmer might tackle them. Next, I will show you what I think is a preferred solution -- one which makes for more effective and efficient code, especially in a **production** environment. Rather than renventing the wheel, I will show you what I have found in my 4 years of doing data science in R are the most useful packages for solving these tasks.
+In the following sections, on a case by case basis, I will briefly introduce a problem or challenge to writing effective and efficient R code for common data science tasks. I will illustrate how these problems might be tackled in base R or with other common packages. Next, I will show you what I think is a preferred solution -- one which makes for more effective and efficient code, especially in a **production** environment with other engineers and scientists. Rather than renventing the wheel, I will show you what I have found in my 4 years of doing data science in R are the most useful packages for solving these common tasks balancing the needs of computational and production efficiency with code expressiveness.
 
 
 
@@ -39,12 +39,12 @@ weight_units <- "pounds"
 
 ## Solution # 1 - Using paste
 ## Hard to read and deal with different separators.
+
 base::paste(name, "is", age, paste0(age_units, "."), "He weighs", weight, paste0(weight_units, "!"))
 
 
 ## Solution # 2 - Using sprintf
-## Difficult to remember formatting codes; Difficult to interpret long strings (e.g., complex SQL queries sent via
-## ODBC) requiring you to visually map variables at end of construct to embedded placeholders.
+## Difficult to remember formatting codes; Difficult to interpret long strings (e.g., complex SQL queries sent via ODBC) requiring you to visually map variables at end of construct to embedded placeholders.
 base::sprintf("%s is %i %s. He weighs %3.1f %s!", name, age, age_units, weight, weight_units)
 
 
