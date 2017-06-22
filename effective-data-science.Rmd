@@ -1,7 +1,7 @@
 ---
-title: "Efficient Data Science with R"
+title: "7 Packages for Efficient Data Science with R"
 author: "Brandon C. Loudermilk, PhD"
-date: "June 19, 2017"
+date: "June 22, 2017"
 output:
   pdf_document: default
   html_document: default
@@ -15,19 +15,19 @@ opts_chunk$set(tidy.opts = list(width.cutoff = 60), tidy = TRUE)
 > # “Progress isn't made by early risers. It's made by lazy men trying to find easier ways to do something.” ― Robert A. Heinlein
 
 
-# Using R for Efficient Data Science
+
 In this presentation I am going to discuss some tricks, techniques, and packages that will improve your data science game by making you and your R code more efficient.
 
-By *efficiency* I am not just talking about algorithmic speed and data structure complexity, but I am also considering efficiency in the broader sense of the term to encompass programmer and engineering efficiency. As Gillespie and Lovelace (2016) note, *efficiency* can include programming idioms, IDEs, coding conventions, development processes, and even community support – all things that can greatly improve the speed and ease of writing and maintaining code. 
+By *efficiency* I am not just talking about algorithmic speed and data structure complexity, but I am also considering efficiency in the broader sense of the term to encompass programmer and engineering productivity. As Gillespie and Lovelace (2016) note, *efficiency* can include programming idioms, IDEs, coding conventions, development processes, and even community support – all things that can greatly improve the speed and ease of "doing" data science. 
 
-Efficiency is especially important for R - a language that is notoriously flexible in its ability to solve problems in multiple ways. This issue compounded when one considers the thousands of packages that are available on **CRAN**, **Bioconductor**, and **Github**. R's flexibility is both a blessing and curse. It is a blessing because it affords you the tools to write code specific to your individual needs. It is a curse because (a) it makes it more likely that you will choose a sub-optimal solution to your problem and (b) it makes it more likely that another scientist or team mate (and possibly your *future self*) will not understand your code, making it more difficult to maintain and extend.
+Efficiency is especially important for R - a language that is notoriously flexible in its ability to solve problems in multiple ways. This issue is compounded when one considers the thousands of packages that are available on **CRAN**, **Bioconductor**, and **Github**. R's flexibility is both a blessing and curse. It is a blessing because it affords you the tools to write code specific to your individual needs. It is a curse because (a) it makes it more likely that you will choose a sub-optimal solution to your problem and (b) it makes it more likely that another scientist or team mate (and possibly your own *future self*) will not understand your code, making it more difficult to maintain and extend.
 
-In the following sections, on a case by case basis, I will briefly introduce a problem or challenge to writing effective and efficient R code. I will illustrate how these problems might be tackled in base R or other common packages. Next, I will show you what I think is a preferred solution -- one that makes for more effective and efficient code, especially in a *production* environment *collaborating* with other engineers and scientists. Rather than reinventing the wheel, I will show you what I have found are the most useful packages and techniques for solving common data science tasks balancing the needs of computational and engineering efficiency with code expressiveness.
+In the following sections, on a case by case basis, I will briefly introduce a problem or challenge relating to common data science tasks. I will illustrate how these problems might be tackled in base R or other common packages. Next, I will show you what I think is a preferred solution -- one that makes for more effective and efficient code, especially in a *production* environment *collaborating* with other engineers and scientists. Rather than reinventing the wheel, I will show you what I have found are the most useful packages and techniques for solving common tasks balancing the needs of computational and engineering efficiency with code expressiveness.
 
 \pagebreak
 
 ## 1. Benchmarking
-In a production environment, for real-time applications, it is often important to determine the most optimal way to write a function so as to reduce processing time.
+In a production environment, for real-time applications, it is often important to determine the most optimal way to write a function so as to reduce processing time. For large blocks of code we can rely on the R profiler to identify performance bottlenecks, but we often need a quick, agile approach to identifying the most efficient solution among several alternatives.
 
 > ### What is the quickest method to subset a data.frame to a single cell?
 (a). df[row, col]
@@ -35,7 +35,7 @@ In a production environment, for real-time applications, it is often important t
 (c). df$col_name[row]
 
 
-### SOLUTION #1.1 - A naive approach is to take time stamps. The following is snippet is inaccurate because it relies on a single trial and because it prints the result of the subset operation to the console (which in fact takes up the bulk of the processing time).
+### SOLUTION #1.1 - A naive approach is to take time stamps. The following approach is inaccurate because (a) it relies on a single trial to compute the run time and (b) it prints the result of the subset operation to the console (which in fact takes up the bulk of the processing time).
 ```{r}
 df_1 <- data.frame(num = sample(x = 1:100, size = 100, replace = TRUE), 
                 ltr = sample(x = letters, size = 100, replace = TRUE))
@@ -71,7 +71,7 @@ ggplot2::autoplot(m)
 \pagebreak
 
 ## 2. Reading Data
-There are numerous ways to read/write various data formats in R. My goto these days is package {readr} because it is quick, easy to use, and has functions for reading flat files in a variety of common formats (e.g., csv, tsv, logs, tables). For large data.frames, {readr} functions approach the speeds of `data.table::fread()` (Fig. 1).
+There are numerous ways to read/write various data formats into R. My goto these days is package {readr} because it is quick, easy to use, and has functions for reading flat files in a variety of common formats (e.g., csv, tsv, logs, tables). For large data.frames, {readr} functions approach the speeds of `data.table::fread()` (Fig. 1).
 
 ![Benchmarks of base, data.table, and readr approaches for reading CSV files. Source: Gillespie & Lovelace (2016)](images/read.PNG)
 
@@ -91,7 +91,7 @@ lvls <- unique(df_2$GEOID)
 
 library(readr)
 df_2 <- read_csv(file_name, col_types = cols(
-  GEOID = col_factor(levels = lvls), ## <- change to factor
+  GEOID = col_factor(levels = lvls),
   SUMLEV = col_character(),
   STATE = col_integer(),
   COUNTY = col_character(),
@@ -118,6 +118,7 @@ Once I've preprocessed and cleaned my data.frame, I then store the data as a bin
 ```{r}
   saveRDS(df_2, file = "data/texas_census_cleaned_df.Rds")
   cleaned_df_2 <- readRDS(file = "data/texas_census_cleaned_df.Rds")
+  head(cleaned_df_2)
 ```
 
 ### BONUS - Binary formats are fast! Reading and writing from binary formats is also much quicker than storing it as a CSV (Fig. 2).
@@ -226,7 +227,7 @@ remove_extraspaces <- function(s) {
 
 ```
 
-### SOLUTION #4.1 - Use nested functions. Extremely difficult to read.
+### SOLUTION #4.1 - Use nested functions. Extremely difficult to read, especially when functions take multiple arguments.
 ```{r}
 ## Let's transform a tweet into a useable list of tokens
 s <- "@foobar 'Developers who use spaces make more money than those who use tabs' https://stackoverflow.blog/2017/06/15/developers-use-spaces-make-money-use-tabs/ … #rstats "
@@ -264,7 +265,7 @@ s %>%
 \pagebreak
 
 ## 5. Data Munging
-There are numerous functions available in base R for common data frame processing tasks like filtering, selection, and summarizing (e.g., `split()`, `subset()`, `aggregate()`). Most use standard evaluation that make for long, unwieldy statements, and the differing syntax makes them difficult to remember and they often do not play well together. 
+There are numerous functions available in base R for common data carpentry tasks like filtering, selecting, sorting, and summarizing (e.g., `order()`, `subset()`, `aggregate()`). Most use standard evaluation that make for long, unwieldy statements, and the differing syntax makes them difficult to remember and they often do not play well together. 
 
 ```{r}
 
@@ -285,7 +286,7 @@ df_5 <- dplyr::starwars
 df_5 %>% head()
 
 ```
-> In the Star Wars franchise, among all characters of known gender and mass GE 75, what is the difference in mean height between blaster users or lightsaber wielders?
+> In the Star Wars franchise, among all characters of known gender and mass GE 75, what is the difference in mean height between blaster users and lightsaber wielders?
 
 ### SOLUTION #5.1 (partial) - Using base. Complex, hard to figure out where to start with lots of opportunities for introducing bugs.
 ```{r}
@@ -426,7 +427,7 @@ library(memoise)
 
 mem_my_func <- memoise(my_func)
 
-microbenchmark(my_func("foo", "bar"),mem_my_func("foo", "bar") )
+microbenchmark(my_func("foo", "bar"),mem_my_func("foo", "bar"), unit = "ms" )
 
 ## Bonus you can use Google Drive or Drop Box to share the cache among colleagues
 # gdc <- cache_filesystem("~/Google Drive/.rcache")
@@ -436,11 +437,14 @@ microbenchmark(my_func("foo", "bar"),mem_my_func("foo", "bar") )
 ```
 \pagebreak
 
-## Thank you
+## Thank you to our sponsor Booz Allen Hamilton
 
-For more information on writing efficient R code, I direct you to Gillespie and Lovelace's excellent book [Efficient R Programming (2016)](http://shop.oreilly.com/product/0636920047995.do) published by O'Reilly Media. You can read my full review of their book on RStudio's [R Views Blogs](https://rviews.rstudio.com/2017/05/19/efficient_r_programming/).
+For more information on writing efficient R code, I direct you to Gillespie and Lovelace's excellent book [Efficient R Programming (2016)](http://shop.oreilly.com/product/0636920047995.do) published by O'Reilly Media. You can read my full review of their book on RStudio's [R Views Blogs](https://rviews.rstudio.com/2017/05/19/efficient_r_programming/). A useful discussion of the quirks and pitfalls of R that can impact the efficiency of your code, is Patrick Burn's [The R Inferno (2011)](http://www.burns-stat.com/pages/Tutor/R_inferno.pdf).
 
-**Brandon C Loudermilk - b.c.loudermilk@gmail.com or loudermilk.brandon@heb.com**
+
+Brandon C Loudermilk - b.c.loudermilk@gmail.com or loudermilk.brandon@heb.com
+
+
 
 
 
